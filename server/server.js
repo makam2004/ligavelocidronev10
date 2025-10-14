@@ -13,14 +13,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ENV
 const PORT = process.env.PORT || 3000;
 const VELO_API_URL = process.env.VELO_API_URL || 'https://velocidrone.co.uk/api/leaderboard';
 const VELO_API_TOKEN = process.env.VELO_API_TOKEN;
 const SIM_VERSION = process.env.SIM_VERSION || '1.16';
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000);
 
-// Cache simple
 const veloCache = new Map();
 const cacheKey = (track_id, race_mode) => `${track_id}_${race_mode}`;
 
@@ -59,10 +57,9 @@ function parseTimeToMsFlexible(s) {
   } catch { return null; }
 }
 
-// Health
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// Probe crudo
+// RAW (con cache) para contar y comparar
 app.get('/api/velo/raw', async (req, res) => {
   try {
     const track_id = +req.query.track_id;
@@ -88,18 +85,20 @@ app.get('/api/velo/raw', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Leaderboard: FORZAR mostrar TODO (sin filtro por pilotos, sin descartar por parseo)
+// Leaderboard con metadatos y deduplicación por user_id (mejor vuelta)
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const track_id = +req.query.track_id;
     const laps = +req.query.laps;
+    const includeUnparsed = req.query.include_unparsed === '1';
+    const uniqueByUser = req.query.unique_by_user !== '0'; // por defecto ON
     if (!track_id || ![1,3].includes(laps)) return res.status(400).json({ error: 'Parámetros inválidos' });
     const race_mode = laps === 3 ? 6 : 3;
 
     const key = cacheKey(track_id, race_mode);
     const now = Date.now();
     let raw = veloCache.get(key)?.raw;
-    if (!raw || (now - veloCache.get(key).time) >= CACHE_TTL_MS) {
+    if (!raw || (now - (veloCache.get(key)?.time || 0)) >= CACHE_TTL_MS) {
       const out = await callVelocidrone(buildPostData({ track_id, race_mode }));
       if (!out.ok) return res.status(out.status).json({ error: out.text });
       const json = JSON.parse(out.text);
@@ -107,8 +106,7 @@ app.get('/api/leaderboard', async (req, res) => {
       veloCache.set(key, { time: now, raw });
     }
 
-    // Mapear SIN filtrar nada. Si no se puede parsear, igual se devuelve.
-    const normalized = raw.map(r => {
+    const mapped = raw.map(r => {
       const lap = r.lap_time ?? r.best_time ?? r.time ?? r.laptime ?? r.best_lap ?? r.bestlap ?? '';
       const tms = parseTimeToMsFlexible(lap);
       return {
@@ -123,19 +121,42 @@ app.get('/api/leaderboard', async (req, res) => {
       };
     });
 
-    // ordenar: los que no tengan ms van al final, pero todos se devuelven
-    normalized.sort((a,b) => {
+    // Deduplicación: nos quedamos con la mejor vuelta por user_id
+    let bestPerUser = mapped;
+    if (uniqueByUser) {
+      const bestMap = new Map();
+      for (const r of mapped) {
+        const k = r.user_id;
+        const prev = bestMap.get(k);
+        if (!prev || (Number.isFinite(r.lap_time_ms) && r.lap_time_ms < prev.lap_time_ms)) {
+          bestMap.set(k, r);
+        }
+      }
+      bestPerUser = Array.from(bestMap.values());
+    }
+
+    const hasParsed = bestPerUser.some(m => Number.isFinite(m.lap_time_ms));
+    const list = hasParsed || includeUnparsed ? bestPerUser : bestPerUser.slice(0, 50);
+
+    list.sort((a,b) => {
       const am = Number.isFinite(a.lap_time_ms) ? a.lap_time_ms : Number.MAX_SAFE_INTEGER;
       const bm = Number.isFinite(b.lap_time_ms) ? b.lap_time_ms : Number.MAX_SAFE_INTEGER;
       return am - bm;
     });
 
-    const results = normalized.map((r,i) => ({ position: i+1, ...r }));
-    res.json({ track_id, laps, results });
+    const results = list.map((r,i) => ({ position: i+1, ...r }));
+    const meta = {
+      raw_count: raw.length,
+      mapped_count: mapped.length,
+      unique_users: new Set(mapped.map(x => x.user_id)).size,
+      returned_count: results.length,
+      unique_by_user: !!uniqueByUser
+    };
+    res.json({ track_id, laps, meta, results });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Static fallback (por si sirve el mismo server para servir frontend)
+// Static (por si usas mismo server para frontend)
 const publicDir = path.resolve(__dirname, '../public');
 app.use(express.static(publicDir));
 app.get('*', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
