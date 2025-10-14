@@ -2,18 +2,19 @@
 # Stage 1: install server deps
 FROM node:20-alpine AS server
 WORKDIR /app
-COPY server/package.json server/package-lock.json* ./server/
-RUN cd server && npm ci --omit=dev
+COPY server/package.json ./server/
+# Use npm install instead of npm ci because there's no lockfile in repo
+RUN cd server && npm install --omit=dev
 COPY server ./server
 
-# Stage 2: collect frontend build (static)
+# Stage 2: collect frontend (static)
 COPY frontend /app/public
 
 # Final image
 FROM node:20-alpine
 WORKDIR /app
 
-# Copy server and public from previous stages
+# Copy server and public from previous stage
 COPY --from=server /app/server ./server
 COPY --from=server /app/public ./public
 
