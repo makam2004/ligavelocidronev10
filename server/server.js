@@ -45,7 +45,7 @@ app.get('/api/debug', async (req, res) => {
 });
 
 // ============================
-// Admin endpoint fixed
+// Admin endpoint fixed (WITH WHERE CLAUSE)
 // ============================
 app.post('/api/admin/set-tracks', async (req, res) => {
   const adminKey = req.header('x-admin-key');
@@ -58,7 +58,12 @@ app.post('/api/admin/set-tracks', async (req, res) => {
   }
 
   try {
-    const { error: updAllErr } = await supabase.from('tracks').update({ active: false });
+    // IMPORTANT: add WHERE to satisfy PostgREST constraint
+    const { error: updAllErr } = await supabase
+      .from('tracks')
+      .update({ active: false })
+      .eq('active', true); // <= WHERE clause
+
     if (updAllErr) {
       console.error('[tracks.update all]', updAllErr);
       return res.status(500).json({ error: updAllErr.message });
