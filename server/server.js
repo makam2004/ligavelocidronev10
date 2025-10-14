@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
+import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -13,12 +14,30 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ============================
+// ENV
+// ============================
 const PORT = process.env.PORT || 3000;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE;
 const VELO_API_URL = process.env.VELO_API_URL || 'https://velocidrone.co.uk/api/leaderboard';
 const VELO_API_TOKEN = process.env.VELO_API_TOKEN;
 const SIM_VERSION = process.env.SIM_VERSION || '1.16';
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000);
 
+// ============================
+// Supabase
+// ============================
+let supabase = null;
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE) {
+  console.warn('[WARN] SUPABASE_URL or SUPABASE_SERVICE_ROLE not set; /api/tracks/active may return empty.');
+} else {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
+}
+
+// ============================
+// Cache & helpers
+// ============================
 const veloCache = new Map();
 const cacheKey = (track_id, race_mode) => `${track_id}_${race_mode}`;
 
@@ -57,9 +76,21 @@ function parseTimeToMsFlexible(s) {
   } catch { return null; }
 }
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+// ============================
+// Health
+// ============================
+app.get('/api/health', (req, res) => res.json({
+  ok: true,
+  env: {
+    supabase_url_present: !!SUPABASE_URL,
+    service_role_present: !!SUPABASE_SERVICE_ROLE,
+    velo_token_present: !!VELO_API_TOKEN
+  }
+}));
 
-// RAW (con cache) para contar y comparar
+// ============================
+// RAW Velocidrone (con caché)
+// ============================
 app.get('/api/velo/raw', async (req, res) => {
   try {
     const track_id = +req.query.track_id;
@@ -85,13 +116,15 @@ app.get('/api/velo/raw', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Leaderboard con metadatos y deduplicación por user_id (mejor vuelta)
+// ============================
+// Leaderboard sin filtros (dedup por usuario, por defecto)
+// ============================
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const track_id = +req.query.track_id;
     const laps = +req.query.laps;
     const includeUnparsed = req.query.include_unparsed === '1';
-    const uniqueByUser = req.query.unique_by_user !== '0'; // por defecto ON
+    const uniqueByUser = req.query.unique_by_user !== '0'; // default ON
     if (!track_id || ![1,3].includes(laps)) return res.status(400).json({ error: 'Parámetros inválidos' });
     const race_mode = laps === 3 ? 6 : 3;
 
@@ -121,7 +154,6 @@ app.get('/api/leaderboard', async (req, res) => {
       };
     });
 
-    // Deduplicación: nos quedamos con la mejor vuelta por user_id
     let bestPerUser = mapped;
     if (uniqueByUser) {
       const bestMap = new Map();
@@ -147,7 +179,6 @@ app.get('/api/leaderboard', async (req, res) => {
     const results = list.map((r,i) => ({ position: i+1, ...r }));
     const meta = {
       raw_count: raw.length,
-      mapped_count: mapped.length,
       unique_users: new Set(mapped.map(x => x.user_id)).size,
       returned_count: results.length,
       unique_by_user: !!uniqueByUser
@@ -156,9 +187,32 @@ app.get('/api/leaderboard', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Static (por si usas mismo server para frontend)
+// ============================
+// Tracks activos (Supabase) — necesario para las pestañas del frontend
+// ============================
+app.get('/api/tracks/active', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.json({ tracks: [], warning: 'Supabase no configurado en el servidor' });
+    }
+    const { data, error } = await supabase
+      .from('tracks')
+      .select('*')
+      .eq('active', true)
+      .order('laps', { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ tracks: data || [] });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================
+// Static frontend
+// ============================
 const publicDir = path.resolve(__dirname, '../public');
 app.use(express.static(publicDir));
 app.get('*', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
+// Start
 app.listen(PORT, () => console.log(`Server running on :${PORT}`));
