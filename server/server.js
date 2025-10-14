@@ -25,14 +25,14 @@ const VELO_API_TOKEN = process.env.VELO_API_TOKEN;
 const SIM_VERSION = process.env.SIM_VERSION || '1.16';
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000); // 10 min por defecto
 
+// Aunque ya no filtramos por pilotos, mantenemos supabase client por si lo necesitas en admin/debug
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
 
 // ============================
-/** Cache simple en memoria: key => { time, raw } */
+// Cache y utilidades
+// ============================
 const veloCache = new Map();
-function cacheKey(track_id, race_mode) {
-  return `${track_id}_${race_mode}`;
-}
+const cacheKey = (track_id, race_mode) => `${track_id}_${race_mode}`;
 
 async function fetchVeloRaw({ track_id, race_mode, useCache = true, offset=0, count=200, protected_track_value=1 }) {
   const key = cacheKey(track_id, race_mode);
@@ -69,7 +69,6 @@ async function fetchVeloRaw({ track_id, race_mode, useCache = true, offset=0, co
   }
   const raw = Array.isArray(json.tracktimes) ? json.tracktimes : [];
 
-  // guarda en caché
   veloCache.set(key, { time: now, raw });
   return { raw, from_cache: false };
 }
@@ -97,10 +96,8 @@ function parseTimeToMs(t) {
 app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
 app.get('/api/debug', async (req, res) => {
-  const mask = v => (v ? v.slice(0, 6) + '…' : null);
   try {
-    const { data: tracks, error: e1 } = await supabase.from('tracks').select('id, title, track_id, laps, active').order('laps');
-    const { data: pilots, error: e2 } = await supabase.from('pilots').select('user_id, name, country, active').order('user_id');
+    const { data: tracks } = await supabase.from('tracks').select('id, title, track_id, laps, active').order('laps');
     res.json({
       env: {
         SUPABASE_URL_present: !!SUPABASE_URL,
@@ -110,67 +107,31 @@ app.get('/api/debug', async (req, res) => {
         SIM_VERSION,
         CACHE_TTL_MS
       },
-      counts: { tracks: tracks?.length || 0, pilots: pilots?.length || 0 },
-      samples: { tracks: (tracks||[]).slice(0,5), pilots: (pilots||[]).slice(0,10) },
-      service_role_preview: mask(process.env.SUPABASE_SERVICE_ROLE),
-      errors: { e1, e2 }
+      counts: { tracks: tracks?.length || 0 },
+      samples: { tracks: (tracks||[]).slice(0,5) }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Debug: vista de usuarios Velocidrone + solape con pilots
-app.get('/api/debug/leaderboard', async (req, res) => {
+// Debug: ver crudo sin filtrar
+app.get('/api/velo/raw', async (req, res) => {
   try {
     const track_id = parseInt(req.query.track_id, 10);
     const laps = parseInt(req.query.laps, 10);
-    const useCache = req.query.use_cache !== '0'; // por defecto usa caché
+    const useCache = req.query.use_cache !== '0';
     if (!track_id || ![1,3].includes(laps)) return res.status(400).json({ error: 'Parámetros inválidos' });
     const race_mode = laps === 3 ? 6 : 3;
-
-    const { data: pilots, error: pilotErr } = await supabase
-      .from('pilots').select('user_id, name, country, active');
-    if (pilotErr) return res.status(500).json({ error: pilotErr.message });
-
-    const activePilots = (pilots || []).filter(p => p.active);
-    const pilotIds = new Set(activePilots.map(p => p.user_id));
-
-    let raw, from_cache;
-    try {
-      ({ raw, from_cache } = await fetchVeloRaw({ track_id, race_mode, useCache }));
-    } catch (e) {
-      // Si rate-limit (429) y hay caché previa, devuélvela
-      const key = `${track_id}_${race_mode}`;
-      const cached = veloCache.get(key);
-      if (e.status === 429 && cached) {
-        raw = cached.raw;
-        from_cache = true;
-      } else {
-        throw e;
-      }
-    }
-
-    const veloUserIds = Array.from(new Set(raw.map(r => r.user_id)));
-    const overlap = veloUserIds.filter(id => pilotIds.has(id));
-
-    res.json({
-      track_id, laps, race_mode,
-      velo_count: raw.length,
-      velo_unique_users: veloUserIds.length,
-      pilots_active: activePilots.length,
-      overlap_count: overlap.length,
-      overlap_user_ids: overlap.slice(0, 100),
-      from_cache
-    });
-  } catch (err) {
-    const status = err.status || 500;
-    res.status(status).json({ error: err.message, status });
+    const { raw, from_cache } = await fetchVeloRaw({ track_id, race_mode, useCache });
+    res.json({ track_id, laps, race_mode, count: raw.length, from_cache, sample: raw.slice(0, 20) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
 // ============================
-// API pública (con caché y manejo de 429)
+// API pública (muestra TODOS los pilotos)
 // ============================
 app.get('/api/tracks/active', async (req, res) => {
   const { data, error } = await supabase
@@ -186,16 +147,10 @@ app.get('/api/leaderboard', async (req, res) => {
     if (!track_id || ![1,3].includes(laps)) return res.status(400).json({ error: 'Parámetros inválidos' });
     const race_mode = laps === 3 ? 6 : 3;
 
-    const { data: pilots, error: pilotErr } = await supabase
-      .from('pilots').select('user_id, name, country').eq('active', true);
-    if (pilotErr) return res.status(500).json({ error: pilotErr.message });
-    const pilotSet = new Set((pilots || []).map(p => p.user_id));
-
     let raw, from_cache;
     try {
       ({ raw, from_cache } = await fetchVeloRaw({ track_id, race_mode, useCache: true }));
     } catch (e) {
-      // Rate limited: si hay caché, devolvemos caché; si no, 503 para el frontend
       const key = cacheKey(track_id, race_mode);
       const cached = veloCache.get(key);
       if (e.status === 429 && cached) {
@@ -206,9 +161,7 @@ app.get('/api/leaderboard', async (req, res) => {
       }
     }
 
-    const base = pilotSet.size === 0 ? raw : raw.filter(r => pilotSet.has(r.user_id));
-
-    const results = base
+    const results = raw
       .map(r => ({
         user_id: r.user_id,
         playername: r.playername,
