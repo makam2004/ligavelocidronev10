@@ -15,8 +15,10 @@ async function save() {
   });
 
   const out = document.getElementById('status');
-  if (res.ok) out.textContent = 'Guardado correctamente';
-  else {
+  if (res.ok) {
+    const json = await res.json();
+    out.textContent = 'Guardado correctamente: ' + JSON.stringify(json.results);
+  } else {
     const json = await res.json().catch(()=>({}));
     out.textContent = 'Error: ' + (json.error || res.statusText);
   }
