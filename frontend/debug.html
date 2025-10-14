@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Debug Velocidrone</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px;background:#0f172a;color:#e5e7eb}
+    input,button{padding:8px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#e5e7eb}
+    button{background:#0ea5e9;color:#0b1220;font-weight:700;border-color:#1e293b;cursor:pointer}
+    pre{white-space:pre-wrap;background:#0b1220;border:1px solid #1f2937;padding:12px;border-radius:10px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <h1>Debug Velocidrone</h1>
+  <div class="row">
+    <label>track_id</label><input id="track" type="number" value="210"/>
+    <label>laps</label><select id="laps"><option>1</option><option>3</option></select>
+    <button onclick="probe()">Probar /api/probe</button>
+    <button onclick="raw()">Probar /api/velo/raw</button>
+    <button onclick="leader()">Probar /api/leaderboard</button>
+  </div>
+  <h3>Resultado</h3>
+  <pre id="out">Sin ejecutar…</pre>
+
+  <script>
+    async function j(url){
+      const r = await fetch(url);
+      const t = await r.text();
+      try { return JSON.stringify(JSON.parse(t), null, 2); } catch { return t; }
+    }
+    function qp(){ return `track_id=${document.getElementById('track').value}&laps=${document.getElementById('laps').value}`; }
+    async function probe(){ out.textContent = await j('/api/probe?' + qp()); }
+    async function raw(){ out.textContent = await j('/api/velo/raw?' + qp()); }
+    async function leader(){ out.textContent = await j('/api/leaderboard?' + qp()); }
+    const out = document.getElementById('out');
+  </script>
+</body>
+</html>
