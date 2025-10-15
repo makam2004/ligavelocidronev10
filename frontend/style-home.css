@@ -1,5 +1,12 @@
 body.home{
-  background: url('/background.png') no-repeat center / cover fixed;
-  color: white;
+  background: url('/background.png') no-repeat center top / cover fixed;
+  --overlay-dark: rgba(0,0,0,.30);
 }
-.wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-shadow:0 0 10px #000}
+body.home::after{
+  content:'';
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:var(--overlay-dark);
+  opacity:.18;
+  pointer-events:none;
+}
+main{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;color:white;text-shadow:0 0 8px #000;}

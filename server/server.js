@@ -4,7 +4,6 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,23 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 10000;
 
-// ===== SUPABASE (opcional) =====
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE || '';
-const supabase = (SUPABASE_URL && SUPABASE_SERVICE_ROLE) ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE) : null;
-
-// ===== API MÍNIMA (health) =====
-app.get('/api/health', (req, res) => {
-  res.json({
-    ok: true,
-    supabase: !!supabase,
-  });
-});
-
-// ===== AUTO-DETECCIÓN DE ESTÁTICOS =====
-// Intenta servir index.html desde varias rutas, para cubrir ambos casos:
-// - Root Directory en la raíz del repo (../frontend)
-// - Root Directory en /server (./public)
+// --- Auto detectar index.html ---
 const candidates = [
   path.resolve(__dirname, '../frontend'),
   path.resolve(__dirname, './public'),
@@ -48,8 +31,6 @@ for (const dir of candidates) {
       STATIC_ROOT = dir;
       console.log('[STATIC] Encontrado index.html en:', idx);
       break;
-    } else {
-      console.log('[STATIC] No index en:', idx);
     }
   } catch (e) {
     console.log('[STATIC] Error comprobando', dir, e?.message);

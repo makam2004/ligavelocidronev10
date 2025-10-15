@@ -3,13 +3,114 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Velocidrone</title>
+  <title>Liga Velocidrone</title>
   <link rel="stylesheet" href="/style-home.css" />
+  <style>
+    :root{ --text:#e5e7eb; --muted:#cbd5e1; --card-bg:rgba(12,16,28,.72); --card-border:rgba(255,255,255,.08); }
+    html,body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif;color:var(--text);}
+    .wrap{max-width:1100px;margin:0 auto;padding:1rem;}
+    header.wrap{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+    h1{font-size:clamp(1.4rem,2vw,2rem);margin:.2rem 0 .8rem}
+    .muted{color:var(--muted)}
+    .main-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:1rem 1.25rem;}
+    .tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem}
+    .btn{padding:.5rem .8rem;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:var(--text);cursor:pointer}
+    .btn.active{background:#f59e0b;color:#0b1220;border-color:transparent;font-weight:700}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{text-align:left;padding:.6rem .75rem;background:rgba(15,23,42,.65)}
+    tbody td{padding:.55rem .75rem}
+    tbody tr:nth-child(odd){background:rgba(15,23,42,.35)}
+    tbody tr:hover{background:rgba(30,41,59,.45)}
+    td,th{border-bottom:1px solid rgba(255,255,255,.06)}
+    @media (max-width:640px){
+      table thead{display:none}
+      table tbody tr{display:block;margin-bottom:.6rem;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:.4rem .5rem}
+      table tbody td{display:flex;justify-content:space-between;padding:.35rem .5rem;border-bottom:none}
+      table tbody td::before{content:attr(data-label);font-weight:600;color:var(--muted);margin-right:1rem}
+    }
+    .status{margin:.5rem 0 1rem;font-size:.95rem}
+    .error{color:#ffb4b4}
+  </style>
+  <script>
+    async function fetchJSON(url){
+      const r = await fetch(url);
+      const t = await r.text();
+      try { return { ok: r.ok, status: r.status, data: JSON.parse(t) }; }
+      catch { return { ok: false, status: r.status, data: t }; }
+    }
+
+    async function loadTracks(){
+      const box = document.getElementById('tracks');
+      const res = await fetchJSON('/api/tracks/active');
+      if(!res.ok){ box.innerHTML = `<div class="error">Error al cargar tracks activos:<br>HTTP ${res.status} - ${res.data && res.data.error ? res.data.error : res.data}</div>`; return null; }
+      const tracks = (res.data && res.data.tracks) ? res.data.tracks : [];
+      if(!tracks.length){ box.innerHTML = `<div class="muted">No hay tracks activos en la base de datos.</div>`; return null; }
+      box.innerHTML = `
+        <div class="tabs">
+          ${tracks.map((t,i)=>`<button class="btn ${i===0?'active':''}" data-i="${i}">${t.name || (t.is_official ? `Oficial ${t.track_id}` : `No oficial`) } · ${t.laps} lap</button>`).join('')}
+        </div>
+      `;
+      box.querySelectorAll('.btn').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          box.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          const t = tracks[Number(btn.dataset.i)];
+          loadLeaderboard(t);
+        });
+      });
+      await loadLeaderboard(tracks[0]);
+      return tracks;
+    }
+
+    async function loadLeaderboard(track){
+      const status = document.getElementById('status');
+      const table = document.getElementById('table-body');
+      table.innerHTML = '';
+      status.textContent = 'Cargando leaderboard…';
+      let url = '/api/leaderboard';
+      const q = [];
+      if (track) {
+        if (track.is_official) { q.push(`track_id=${track.track_id}`); }
+        else if (track.online_id) { q.push(`online_id=${encodeURIComponent(track.online_id)}`); }
+        q.push(`laps=${track.laps}`);
+      }
+      if (q.length) url += `?${q.join('&')}`;
+      const res = await fetchJSON(url);
+      if(!res.ok){
+        status.innerHTML = `<span class="error">Error al cargar leaderboard:<br>HTTP ${res.status} - ${res.data && res.data.error ? res.data.error : res.data}</span>`;
+        return;
+      }
+      const data = res.data;
+      status.innerHTML = `<span class="muted">Se muestran ${data.meta && data.meta.returned_count !== undefined ? data.meta.returned_count : (data.results?data.results.length:0)} pilotos dados de alta en la liga.</span>`;
+      const rows = (data.results || []).map(r => `
+        <tr>
+          <td data-label="#">${r.position}</td>
+          <td data-label="Piloto">${r.playername || '-'}</td>
+          <td data-label="País">${r.country || '-'}</td>
+          <td data-label="Modelo">${r.model_name || '-'}</td>
+          <td data-label="Tiempo">${r.lap_time || '-'}</td>
+        </tr>`).join('');
+      table.innerHTML = rows || `<tr><td colspan="5" class="muted">No hay resultados para los pilotos dados de alta.</td></tr>`;
+    }
+    document.addEventListener('DOMContentLoaded', loadTracks);
+  </script>
 </head>
 <body class="home">
+  <header class="wrap">
+    <h1>🏁 Liga Velocidrone</h1>
+    <div class="muted">v1</div>
+  </header>
   <main class="wrap">
-    <h1>🏁 Velocidrone</h1>
-    <p>Si ves esta página, el estático se sirvió correctamente.</p>
+    <section class="main-card">
+      <div id="tracks" class="mb"></div>
+      <div id="status" class="status muted"></div>
+      <div id="leaderboard">
+        <table>
+          <thead><tr><th>#</th><th>Piloto</th><th>País</th><th>Modelo</th><th>Tiempo</th></tr></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 </body>
 </html>
