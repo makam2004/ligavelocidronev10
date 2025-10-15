@@ -1,19 +1,90 @@
-/* style-home.css — fondo solo en la home */
+/* style-home.css — fondo solo para la página principal */
 body.home {
+  /* Variables de color */
+  --bg-overlay-from: rgba(3, 7, 18, 0.70);
+  --bg-overlay-to: rgba(2, 6, 23, 0.76);
+  --card-bg: rgba(12, 16, 28, 0.72);
+  --card-border: rgba(255,255,255,0.08);
+  --text: #e5e7eb;
+  --accent: #f59e0b;
+  color-scheme: dark;
+
+  /* Fondo */
+  position: relative;
+  min-height: 100vh;
+  color: var(--text);
   background-image: url('/background.png');
   background-size: cover;
-  background-position: center;
+  background-position: center center; /* Centrado sin deformar */
   background-repeat: no-repeat;
-  color: #e5e7eb;
 }
+
+/* Capa oscura encima del fondo */
 body.home::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--bg-overlay-from), var(--bg-overlay-to));
   z-index: 0;
 }
-body.home main, body.home header, body.home footer {
+
+/* Todo el contenido por encima del overlay */
+body.home #app,
+body.home #content,
+body.home main,
+body.home .main,
+body.home .wrap,
+body.home header,
+body.home footer {
   position: relative;
   z-index: 1;
+}
+
+/* Tarjeta principal con efecto glass */
+body.home #leaderboard,
+body.home .main-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  padding: 1rem 1.5rem;
+}
+
+/* Tablas más legibles */
+body.home table thead th {
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text);
+}
+body.home table tbody tr:nth-child(odd) {
+  background: rgba(15, 23, 42, 0.35);
+}
+body.home table tbody tr:hover {
+  background: rgba(30, 41, 59, 0.45);
+}
+body.home td, body.home th {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Botones opcionales */
+body.home .btn-home {
+  color: #0b1220;
+  background: var(--accent);
+  border: none;
+  padding: .6rem 1rem;
+  border-radius: 10px;
+  font-weight: 700;
+}
+body.home .btn-home:hover {
+  filter: brightness(1.05);
+}
+
+/* Ajuste en móviles (sin fondo fijo) */
+@media (max-width: 768px) {
+  body.home {
+    background-attachment: scroll !important;
+    background-position: center top;
+  }
 }

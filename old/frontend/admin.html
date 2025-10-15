@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin – Liga Velocidrone</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <header class="wrap">
+    <h1>Admin – Tracks</h1>
+    <nav>
+      <a href="./index.html">Inicio</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h2>Actualizar tracks activos</h2>
+      <p class="muted">Introduce tu <strong>Admin Key</strong> y define los dos tracks (1 vuelta y 3 vueltas). El servidor validará y guardará en Supabase.</p>
+
+      <label>Admin Key</label>
+      <input id="adminKey" type="password" placeholder="••••••" />
+
+      <div class="grid-2">
+        <div>
+          <h3>Track 1 vuelta</h3>
+          <label>Título</label>
+          <input id="t1_title" type="text" placeholder="Nombre visible" />
+          <label>Scenery ID</label>
+          <input id="t1_scenery" type="number" placeholder="p.ej. 29" />
+          <label>Track ID</label>
+          <input id="t1_track" type="number" placeholder="p.ej. 210" />
+          <label><input id="t1_active" type="checkbox" checked /> Activo</label>
+        </div>
+        <div>
+          <h3>Track 3 vueltas</h3>
+          <label>Título</label>
+          <input id="t3_title" type="text" placeholder="Nombre visible" />
+          <label>Scenery ID</label>
+          <input id="t3_scenery" type="number" placeholder="p.ej. 29" />
+          <label>Track ID</label>
+          <input id="t3_track" type="number" placeholder="p.ej. 210" />
+          <label><input id="t3_active" type="checkbox" checked /> Activo</label>
+        </div>
+      </div>
+
+      <button id="saveBtn">Guardar</button>
+      <div id="status" class="muted"></div>
+    </section>
+  </main>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/admin.js"></script>
+</body>
+</html>

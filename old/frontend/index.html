@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Liga Velocidrone</title>
+<link rel="stylesheet" href="/style-home.css" />
+<script src="/bg-home.js" defer></script>
+
+</head>
+<body>
+  <header class="wrap">
+    <h1>Liga Velocidrone</h1>
+    <nav>
+      <a href="./admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h2>Clasificación actual</h2>
+      <p class="muted">Se muestran sólo pilotos dados de alta en la liga.</p>
+      <div id="track-tabs" class="tabs"></div>
+      <div id="table-container" class="table"></div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <small class="muted">Hecho con Supabase + Velocidrone + Render</small>
+  </footer>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/main.js"></script>
+</body>
+</html>

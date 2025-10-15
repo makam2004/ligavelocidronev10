@@ -1,0 +1,19 @@
+/* style-home.css — fondo solo en la home */
+body.home {
+  background-image: url('/background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: #e5e7eb;
+}
+body.home::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 0;
+}
+body.home main, body.home header, body.home footer {
+  position: relative;
+  z-index: 1;
+}
