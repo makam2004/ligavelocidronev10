@@ -1,13 +1,35 @@
-/* Fondo: una sola imagen grande, poco difuminado */
+/* Fondo: una sola imagen grande, MUY visible y completa */
 body.home{ background: #0b1220; }
+
+/* Imagen grande: que se vea completa (contain) y centrada hacia arriba */
 body.home::after{
   content:""; position:fixed; inset:0;
   background-image: url('/background.png');
-  background-size: cover; background-position: center; background-repeat: no-repeat;
-  filter: blur(3px); opacity: .30; z-index: 0; pointer-events:none;
+  background-size: contain;          /* mantiene imagen completa */
+  background-position: center top;   /* centrada y un poco más arriba */
+  background-repeat: no-repeat;
+  filter: blur(1px);                  /* casi sin difuminar */
+  opacity: .65;                       /* más visible (0.65). Sube/baja a tu gusto */
+  z-index: 0; pointer-events:none;
 }
+
+/* Overlay muuuy suave (para no oscurecer en exceso) */
 body.home::before{
   content:""; position:fixed; inset:0;
-  background: rgba(0,0,0,.18); z-index: 1; pointer-events:none;
+  background: rgba(0,0,0,.08);        /* antes .18 */
+  z-index: 1; pointer-events:none;
 }
+
+/* Bajamos el contenido (título + tabla) */
+body.home .wrap{ 
+  padding-top: clamp(48px, 9vh, 140px); 
+}
+body.home .page-title{ 
+  margin-top: 0; 
+  margin-bottom: 8px;
+}
+body.home .main-card{ 
+  margin-top: 8px; 
+}
+
 body.home main, body.home .main-card{ position:relative; z-index:2; }

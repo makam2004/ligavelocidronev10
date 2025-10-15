@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/style-home.css" />
   <link rel="stylesheet" href="/style-ui.css" />
   <style>
-    .page-title{font-weight:800;font-size:clamp(20px,3.5vw,34px);letter-spacing:.3px;margin:4px 0 12px}
+    .page-title{font-weight:800;font-size:clamp(20px,3.5vw,34px);letter-spacing:.3px;margin:4px 0 12px;text-shadow:0 2px 10px rgba(0,0,0,.35)}
     .subtitle{color:#cbd5e1;margin:-6px 0 10px}
   </style>
 </head>
@@ -15,13 +15,10 @@
   <main class="wrap">
     <h1 id="trackTitle" class="page-title"></h1>
     <div id="trackSubtitle" class="subtitle"></div>
+
     <section class="main-card">
-      <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.5rem">
+      <div style="display:flex;justify-content:flex-start;gap:.5rem;align-items:center;margin-bottom:.5rem">
         <div id="tracks"></div>
-        <label class="muted" style="display:flex;align-items:center;gap:.4rem">
-          <input type="checkbox" id="toggleAll" />
-          Ver todos (ignorar filtro liga)
-        </label>
       </div>
       <div id="status" class="status muted"></div>
       <div id="leaderboard">
@@ -84,7 +81,6 @@
         else if (track.online_id) { q.push(`online_id=${encodeURIComponent(track.online_id)}`); }
         q.push(`laps=${track.laps}`);
       }
-      if (document.getElementById('toggleAll').checked) q.push('filter=all');
       if (q.length) url += `?${q.join('&')}`;
       const res = await fetchJSON(url);
       if(!res.ok){
@@ -93,7 +89,7 @@
       }
       const data = res.data;
       const returned = data.meta && data.meta.returned_count !== undefined ? data.meta.returned_count : (data.results?data.results.length:0);
-      status.innerHTML = `<span class="muted">${document.getElementById('toggleAll').checked ? 'Mostrando TODOS los pilotos' : 'Se muestran sólo pilotos dados de alta en la liga'} — ${returned} resultados.</span>`;
+      status.innerHTML = `<span class="muted">Se muestran sólo pilotos dados de alta en la liga — ${returned} resultados.</span>`;
       const rows = (data.results || []).map(r => `
         <tr>
           <td data-label="#">${r.position}</td>
@@ -106,10 +102,6 @@
     }
     document.addEventListener('DOMContentLoaded', async () => {
       await loadTracks();
-      document.getElementById('toggleAll').addEventListener('change', ()=>{
-        const active = document.querySelector('#tracks .btn.active');
-        if (active) active.click();
-      });
     });
   </script>
 </body>
