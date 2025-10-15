@@ -1,22 +1,13 @@
-/* Fondo con imagen + blur + overlay */
-body.home{
-  background-image: url('/background.png');
-  background-repeat: no-repeat;
-  background-size: contain;
-  background-position: center 10%;
-  background-color: #0b1220;
-}
+/* Fondo: una sola imagen grande, poco difuminado */
+body.home{ background: #0b1220; }
 body.home::after{
   content:""; position:fixed; inset:0;
   background-image: url('/background.png');
-  background-size: cover; background-position: center;
-  filter: blur(16px);
-  opacity: .18;
-  z-index: 0; pointer-events:none;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  filter: blur(3px); opacity: .30; z-index: 0; pointer-events:none;
 }
 body.home::before{
   content:""; position:fixed; inset:0;
-  background: rgba(0,0,0,.30);
-  z-index: 1; pointer-events:none;
+  background: rgba(0,0,0,.18); z-index: 1; pointer-events:none;
 }
 body.home main, body.home .main-card{ position:relative; z-index:2; }

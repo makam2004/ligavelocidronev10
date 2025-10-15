@@ -6,9 +6,15 @@
   <title></title>
   <link rel="stylesheet" href="/style-home.css" />
   <link rel="stylesheet" href="/style-ui.css" />
+  <style>
+    .page-title{font-weight:800;font-size:clamp(20px,3.5vw,34px);letter-spacing:.3px;margin:4px 0 12px}
+    .subtitle{color:#cbd5e1;margin:-6px 0 10px}
+  </style>
 </head>
 <body class="home">
   <main class="wrap">
+    <h1 id="trackTitle" class="page-title"></h1>
+    <div id="trackSubtitle" class="subtitle"></div>
     <section class="main-card">
       <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.5rem">
         <div id="tracks"></div>
@@ -28,6 +34,14 @@
   </main>
 
   <script>
+    function prettyTitle(t){ return (t||'').toString().trim(); }
+    function renderTitle(track){
+      const title = track?.title || track?.Title || track?.name || (track?.is_official ? `Oficial ${track?.track_id}` : `No oficial`);
+      const laps = track?.laps ? `${track.laps} lap` + (Number(track.laps)===3?'s':'') : '';
+      document.getElementById('trackTitle').textContent = prettyTitle(title);
+      document.getElementById('trackSubtitle').textContent = laps ? `Modo: ${laps}` : '';
+    }
+
     async function fetchJSON(url){
       const r = await fetch(url);
       const t = await r.text();
@@ -42,7 +56,7 @@
       if(!tracks.length){ box.innerHTML = `<div class="muted">No hay tracks activos.</div>`; return null; }
       box.innerHTML = `
         <div class="tabs">
-          ${tracks.map((t,i)=>`<button class="btn ${i===0?'active':''}" data-i="${i}">${t.name || (t.is_official ? `Oficial ${t.track_id}` : `No oficial`) } · ${t.laps} lap</button>`).join('')}
+          ${tracks.map((t,i)=>`<button class="btn ${i===0?'active':''}" data-i="${i}">${(t.title||t.Title||t.name|| (t.is_official ? `Oficial ${t.track_id}` : `No oficial`))} · ${t.laps} lap</button>`).join('')}
         </div>
       `;
       box.querySelectorAll('.btn').forEach(btn=>{
@@ -50,9 +64,11 @@
           box.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
           btn.classList.add('active');
           const t = tracks[Number(btn.dataset.i)];
+          renderTitle(t);
           loadLeaderboard(t);
         });
       });
+      renderTitle(tracks[0]);
       await loadLeaderboard(tracks[0]);
       return tracks;
     }
