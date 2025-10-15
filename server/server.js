@@ -50,9 +50,12 @@ function parseTimeToMsFlexible(s) {
 function buildPostDataOfficial({ track_id, laps, offset=0, count=200 }) {
   return `track_id=${track_id}&sim_version=${SIM_VERSION}&offset=${offset}&count=${count}&protected_track_value=1&race_mode=${raceModeFromLaps(laps)}`;
 }
+// FIX: para no-oficial, usar track_id=<online_id> y protected_track_value=0
 function buildPostDataUnofficial({ online_id, laps, offset=0, count=200 }) {
-  return `online_id=${online_id}&sim_version=${SIM_VERSION}&offset=${offset}&count=${count}&race_mode=${raceModeFromLaps(laps)}`;
+  const track_id = encodeURIComponent(online_id);
+  return `track_id=${track_id}&sim_version=${SIM_VERSION}&offset=${offset}&count=${count}&protected_track_value=0&race_mode=${raceModeFromLaps(laps)}`;
 }
+
 async function callVelocidrone(postData) {
   if (!VELO_API_TOKEN) {
     const e = new Error('Falta VELO_API_TOKEN'); e.status = 401; throw e;
@@ -230,37 +233,10 @@ app.get('/api/leaderboard', async (req, res) => {
 
 app.use('/api', (req,res)=>res.status(404).json({ error:'API route not found' }));
 
-// STATIC (prioriza ./public)
-const candidates = [
-  path.resolve(__dirname, './public'),
-  path.resolve(__dirname, '../frontend'),
-  path.resolve(__dirname, '..'),
-  path.resolve(__dirname, '.')
-];
-
-let STATIC_ROOT = null;
-for (const dir of candidates) {
-  try {
-    const idx = path.join(dir, 'index.html');
-    if (fs.existsSync(dir) && fs.existsSync(idx)) {
-      STATIC_ROOT = dir;
-      console.log('[STATIC] Encontrado index.html en:', idx);
-      break;
-    } else {
-      console.log('[STATIC] No index en:', idx);
-    }
-  } catch (e) {
-    console.log('[STATIC] Error comprobando', dir, e?.message);
-  }
-}
-
-if (!STATIC_ROOT) {
-  console.error('[FATAL] No se encontró ningún index.html en rutas:', candidates);
-  app.get('*', (req, res) => res.status(500).send('Static index.html not found. Checked: ' + candidates.join(' | ')));
-} else {
-  app.use(express.static(STATIC_ROOT));
-  app.get('/admin', (req, res) => res.sendFile(path.join(STATIC_ROOT, 'admin.html')));
-  app.get('*', (req, res) => res.sendFile(path.join(STATIC_ROOT, 'index.html')));
-}
+// STATIC
+const staticRoot = path.resolve(__dirname, './public');
+app.use(express.static(staticRoot));
+app.get('/admin', (req, res) => res.sendFile(path.join(staticRoot, 'admin.html')));
+app.get('*', (req, res) => res.sendFile(path.join(staticRoot, 'index.html')));
 
 app.listen(PORT, () => console.log('✅ Server running on :' + PORT));

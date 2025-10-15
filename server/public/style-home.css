@@ -1,3 +1,4 @@
+/* Fondo decidido: imagen base + blur fill + overlay suave */
 body.home{
   background-image: url('/background.png');
   background-repeat: no-repeat;
