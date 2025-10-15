@@ -210,7 +210,7 @@ app.get('/api/tracks/active', async (req, res) => {
 // ============================
 // Static frontend
 // ============================
-const publicDir = path.resolve(__dirname, '../public');
+const publicDir = path.resolve(__dirname, '../frontend');
 app.use(express.static(publicDir));
 app.get('*', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
