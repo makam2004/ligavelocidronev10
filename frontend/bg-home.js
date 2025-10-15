@@ -1,5 +1,4 @@
-// bg-home.js — añade la clase 'home' al <body> (para activar el fondo)
-// Inclúyelo SOLO en index.html
+// bg-home.js — activa el fondo SOLO en la home
 document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.add('home');
 });
