@@ -1,41 +1,11 @@
-/* style-home.css — Fondo con mínimo recorte (contain) + relleno borroso (cover) */
-
 body.home{
-  --overlay-dark: rgba(0,0,0,.45);
-  --text: #e5e7eb;
-  color: var(--text);
-  min-height: 100vh;
-  position: relative;
-  background-image: url('/background.png');
-  background-repeat: no-repeat;
-  background-position: center top;
-  background-size: contain; /* evita recortes */
-  background-color: #0b1220;
+  background: url('/background.png') no-repeat center top / cover fixed;
+  --overlay-dark: rgba(0,0,0,.30);
 }
-
 body.home::after{
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image: url('/background.png');
-  background-size: cover;
-  background-position: center;
-  filter: blur(16px);
-  opacity: .25;
-  z-index: 0;
-  pointer-events: none;
-}
-
-body.home::before{
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-dark);
-  z-index: 1;
-  pointer-events: none;
-}
-
-body.home main, body.home header, body.home footer, body.home #app, body.home .wrap {
-  position: relative;
-  z-index: 2;
+  content:'';
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:var(--overlay-dark);
+  opacity:.18;
+  pointer-events:none;
 }

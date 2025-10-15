@@ -1,56 +1,41 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin – Liga Velocidrone</title>
-  <link rel="stylesheet" href="./css/styles.css" />
+  <meta charset="UTF-8">
+  <title>Admin Tracks</title>
+  <link rel="stylesheet" href="/style-ui.css">
 </head>
 <body>
-  <header class="wrap">
-    <h1>Admin – Tracks</h1>
-    <nav>
-      <a href="./index.html">Inicio</a>
-    </nav>
-  </header>
+  <h2>Administrar Tracks</h2>
+  <label><input type="checkbox" id="is_official" checked> Track oficial</label>
+  <div id="oficial-fields">
+    <label>Track ID: <input id="track_id" type="number"></label>
+  </div>
+  <div id="unoficial-fields" style="display:none">
+    <label>Online ID: <input id="online_id" type="text"></label>
+  </div>
+  <label>Vueltas: <input id="laps" type="number" value="1" min="1" max="3"></label>
+  <button onclick="guardarTrack()">Guardar Track</button>
 
-  <main class="wrap">
-    <section class="card">
-      <h2>Actualizar tracks activos</h2>
-      <p class="muted">Introduce tu <strong>Admin Key</strong> y define los dos tracks (1 vuelta y 3 vueltas). El servidor validará y guardará en Supabase.</p>
-
-      <label>Admin Key</label>
-      <input id="adminKey" type="password" placeholder="••••••" />
-
-      <div class="grid-2">
-        <div>
-          <h3>Track 1 vuelta</h3>
-          <label>Título</label>
-          <input id="t1_title" type="text" placeholder="Nombre visible" />
-          <label>Scenery ID</label>
-          <input id="t1_scenery" type="number" placeholder="p.ej. 29" />
-          <label>Track ID</label>
-          <input id="t1_track" type="number" placeholder="p.ej. 210" />
-          <label><input id="t1_active" type="checkbox" checked /> Activo</label>
-        </div>
-        <div>
-          <h3>Track 3 vueltas</h3>
-          <label>Título</label>
-          <input id="t3_title" type="text" placeholder="Nombre visible" />
-          <label>Scenery ID</label>
-          <input id="t3_scenery" type="number" placeholder="p.ej. 29" />
-          <label>Track ID</label>
-          <input id="t3_track" type="number" placeholder="p.ej. 210" />
-          <label><input id="t3_active" type="checkbox" checked /> Activo</label>
-        </div>
-      </div>
-
-      <button id="saveBtn">Guardar</button>
-      <div id="status" class="muted"></div>
-    </section>
-  </main>
-
-  <script src="./js/supabase.js"></script>
-  <script src="./js/admin.js"></script>
+  <script>
+    const chk=document.getElementById('is_official');
+    const off=document.getElementById('oficial-fields');
+    const uno=document.getElementById('unoficial-fields');
+    chk.addEventListener('change',()=>{
+      off.style.display=chk.checked?'':'none';
+      uno.style.display=chk.checked?'none':'';
+    });
+    async function guardarTrack(){
+      const body={
+        is_official:chk.checked,
+        laps:Number(document.getElementById('laps').value||1),
+        active:true
+      };
+      if(chk.checked) body.track_id=Number(document.getElementById('track_id').value||0);
+      else body.online_id=document.getElementById('online_id').value;
+      const r=await fetch('/api/tracks/upsert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      alert('Track enviado ('+r.status+')');
+    }
+  </script>
 </body>
 </html>
