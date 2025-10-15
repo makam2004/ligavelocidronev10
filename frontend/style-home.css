@@ -1,7 +1,7 @@
 /* style-home.css — Fondo con mínimo recorte (contain) + relleno borroso (cover) */
 
 body.home{
-  --overlay-dark: rgba(0,0,0,.55);
+  --overlay-dark: rgba(0,0,0,.45);
   --text: #e5e7eb;
   color: var(--text);
   min-height: 100vh;
@@ -13,7 +13,6 @@ body.home{
   background-color: #0b1220;
 }
 
-/* Relleno borroso (cover) a pantalla completa */
 body.home::after{
   content: "";
   position: fixed;
@@ -21,13 +20,12 @@ body.home::after{
   background-image: url('/background.png');
   background-size: cover;
   background-position: center;
-  filter: blur(14px);
+  filter: blur(16px);
   opacity: .25;
   z-index: 0;
   pointer-events: none;
 }
 
-/* Overlay oscuro */
 body.home::before{
   content: "";
   position: fixed;
@@ -37,24 +35,7 @@ body.home::before{
   pointer-events: none;
 }
 
-/* Contenido sobre las capas */
 body.home main, body.home header, body.home footer, body.home #app, body.home .wrap {
   position: relative;
   z-index: 2;
-}
-
-/* Tarjeta principal (opcional) */
-body.home #leaderboard, body.home .main-card{
-  background: rgba(12, 16, 28, 0.72);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-  padding: 1rem 1.25rem;
-}
-
-/* En pantallas muy anchas, centra más */
-@media (min-aspect-ratio: 3/2){
-  body.home { background-position: center center; }
 }
