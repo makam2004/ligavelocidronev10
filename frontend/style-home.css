@@ -1,4 +1,4 @@
-/* style-home.css — background only for home */
+/* style-home.css — fondo solo en la página principal */
 body.home{
   --bg-overlay-from: rgba(3, 7, 18, 0.70);
   --bg-overlay-to:   rgba(2, 6, 23, 0.76);
@@ -7,22 +7,34 @@ body.home{
   --text: #e5e7eb;
   --accent: #f59e0b;
   color-scheme: dark;
-  position: relative; min-height: 100vh; color: var(--text);
+
+  position: relative;
+  min-height: 100vh;
+  color: var(--text);
   background-image: url('/background.png');
-  background-size: cover; background-position: center center; background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
-body.home::before{ content:""; position:fixed; inset:0; pointer-events:none;
-  background: linear-gradient(180deg, var(--bg-overlay-from), var(--bg-overlay-to)); z-index:0; }
+body.home::before{
+  content: "";
+  position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, var(--bg-overlay-from), var(--bg-overlay-to));
+  z-index: 0;
+}
 body.home main, body.home header, body.home footer, body.home #app, body.home #content, body.home .wrap{
-  position:relative; z-index:1;
+  position: relative; z-index: 1;
 }
-body.home #leaderboard, body.home .main-card{ background: var(--card-bg);
+body.home #leaderboard, body.home .main-card{
+  background: var(--card-bg);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  border:1px solid var(--card-border); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.35);
-  padding:1rem 1.25rem;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  padding: 1rem 1.25rem;
 }
 body.home table thead th{ background: rgba(15,23,42,.65); color: var(--text); }
 body.home table tbody tr:nth-child(odd){ background: rgba(15,23,42,.35); }
 body.home table tbody tr:hover{ background: rgba(30,41,59,.45); }
 body.home td, body.home th{ border-bottom: 1px solid rgba(255,255,255,0.06); }
-@media (max-width:768px){ body.home{ background-attachment: scroll!important; background-position:center top; } }
+@media (max-width:768px){ body.home{ background-attachment: scroll!important; background-position: center top; } }

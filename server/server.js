@@ -26,17 +26,17 @@ const SIM_VERSION = process.env.SIM_VERSION || '1.16';
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000);
 
 // ============================
-// Supabase
+// Supabase (opcional)
 // ============================
 let supabase = null;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE) {
-  console.warn('[WARN] SUPABASE_URL or SUPABASE_SERVICE_ROLE not set; /api/tracks/active may return empty.');
+  console.warn('[WARN] SUPABASE_URL or SUPABASE_SERVICE_ROLE not set; /api/tracks/active usará fallback vacío.');
 } else {
   supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
 }
 
 // ============================
-// Cache & helpers
+// Helpers Velocidrone + caché
 // ============================
 const veloCache = new Map();
 const cacheKey = (track_id, race_mode) => `${track_id}_${race_mode}`;
@@ -76,6 +76,27 @@ function parseTimeToMsFlexible(s) {
   } catch { return null; }
 }
 
+// Fallback para obtener track y laps si no vienen en la query
+async function resolveTrackAndLaps(query) {
+  let track_id = Number(query.track_id);
+  let laps = Number(query.laps);
+  if (!track_id || ![1,3].includes(laps)) {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('tracks')
+        .select('track_id,laps')
+        .eq('active', true)
+        .order('laps', { ascending: true })
+        .limit(1);
+      if (!error && data && data.length) {
+        track_id = Number(data[0].track_id);
+        laps = Number(data[0].laps);
+      }
+    }
+  }
+  return { track_id, laps };
+}
+
 // ============================
 // Health
 // ============================
@@ -89,22 +110,22 @@ app.get('/api/health', (req, res) => res.json({
 }));
 
 // ============================
-// RAW Velocidrone (con caché)
+// RAW Velocidrone (con caché) — con fallback de params
 // ============================
 app.get('/api/velo/raw', async (req, res) => {
   try {
-    const track_id = +req.query.track_id;
-    const laps = +req.query.laps;
-    const useCache = req.query.use_cache !== '0';
-    if (!track_id || ![1,3].includes(laps)) return res.status(400).json({ error: 'Parámetros inválidos' });
+    const { track_id, laps } = await resolveTrackAndLaps(req.query);
+    if (!track_id || ![1,3].includes(laps)) {
+      return res.status(400).json({ error: 'Parámetros inválidos: indica track_id y laps=1|3 o configura al menos un track activo.' });
+    }
     const race_mode = laps === 3 ? 6 : 3;
 
     const key = cacheKey(track_id, race_mode);
     const now = Date.now();
     const cached = veloCache.get(key);
 
-    if (useCache && cached && (now - cached.time) < CACHE_TTL_MS) {
-      return res.json({ from_cache: true, count: cached.raw.length, sample: cached.raw.slice(0, 20) });
+    if (req.query.use_cache !== '0' && cached && (now - cached.time) < CACHE_TTL_MS) {
+      return res.json({ from_cache: true, track_id, laps, count: cached.raw.length, sample: cached.raw.slice(0, 20) });
     }
 
     const out = await callVelocidrone(buildPostData({ track_id, race_mode }));
@@ -112,20 +133,22 @@ app.get('/api/velo/raw', async (req, res) => {
     const json = JSON.parse(out.text);
     const raw = Array.isArray(json.tracktimes) ? json.tracktimes : [];
     veloCache.set(key, { time: now, raw });
-    res.json({ from_cache: false, count: raw.length, sample: raw.slice(0, 20) });
+    res.json({ from_cache: false, track_id, laps, count: raw.length, sample: raw.slice(0, 20) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ============================
-// Leaderboard sin filtros (dedup por usuario, por defecto)
+// Leaderboard (deduplicado por usuario) — con fallback de params
 // ============================
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const track_id = +req.query.track_id;
-    const laps = +req.query.laps;
+    const { track_id, laps } = await resolveTrackAndLaps(req.query);
     const includeUnparsed = req.query.include_unparsed === '1';
-    const uniqueByUser = req.query.unique_by_user !== '0'; // default ON
-    if (!track_id || ![1,3].includes(laps)) return res.status(400).json({ error: 'Parámetros inválidos' });
+    const uniqueByUser = req.query.unique_by_user !== '0'; // ON por defecto
+
+    if (!track_id || ![1,3].includes(laps)) {
+      return res.status(400).json({ error: 'Parámetros inválidos: indica track_id y laps=1|3 o configura al menos un track activo.' });
+    }
     const race_mode = laps === 3 ? 6 : 3;
 
     const key = cacheKey(track_id, race_mode);
@@ -178,6 +201,7 @@ app.get('/api/leaderboard', async (req, res) => {
 
     const results = list.map((r,i) => ({ position: i+1, ...r }));
     const meta = {
+      track_id, laps,
       raw_count: raw.length,
       unique_users: new Set(mapped.map(x => x.user_id)).size,
       returned_count: results.length,
@@ -188,7 +212,7 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 // ============================
-// Tracks activos (Supabase) — necesario para las pestañas del frontend
+// Tracks activos (Supabase) — pestañas frontend
 // ============================
 app.get('/api/tracks/active', async (req, res) => {
   try {
@@ -208,11 +232,22 @@ app.get('/api/tracks/active', async (req, res) => {
 });
 
 // ============================
-// Static frontend
+// Estáticos desde ../frontend  (¡AQUÍ está el cambio importante!)
 // ============================
-const publicDir = path.resolve(__dirname, '../frontend');
-app.use(express.static(publicDir));
-app.get('*', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
+const publicDir = path.resolve(__dirname, '..'); // raíz del repo
+const staticDir = path.resolve(__dirname, '../frontend'); // carpeta frontend
+app.use(express.static(staticDir));
+app.get('*', (req, res) => {
+  const indexPath = path.join(staticDir, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      // fallback por si el layout difiere (sirve desde raíz)
+      res.sendFile(path.join(publicDir, 'index.html'));
+    }
+  });
+});
 
-// Start
+// ============================
+// start
+// ============================
 app.listen(PORT, () => console.log(`Server running on :${PORT}`));
