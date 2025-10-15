@@ -9,3 +9,4 @@ body.home::after{
   opacity:.18;
   pointer-events:none;
 }
+main{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;color:white;text-shadow:0 0 8px #000;}

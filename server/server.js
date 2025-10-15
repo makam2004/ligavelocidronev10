@@ -72,13 +72,15 @@ app.get('/api/leaderboard', async (req,res)=>{
   }catch(e){ res.status(500).json({error:e.message}); }
 });
 
-// serve frontend
-const staticDir = path.resolve('./frontend');
+// --- FIX: Absolute path for frontend ---
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const staticDir = path.join(__dirname, '../frontend');
+
 app.use(express.static(staticDir));
 app.get('*',(req,res)=>{
   const file = path.join(staticDir,'index.html');
   if(fs.existsSync(file)) res.sendFile(file);
-  else res.status(404).send('index.html not found');
+  else res.status(404).send(`index.html not found at ${file}`);
 });
 
 const PORT = process.env.PORT || 10000;
