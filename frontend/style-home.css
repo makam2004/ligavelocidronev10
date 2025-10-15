@@ -1,90 +1,60 @@
-/* style-home.css — fondo solo para la página principal */
-body.home {
-  /* Variables de color */
-  --bg-overlay-from: rgba(3, 7, 18, 0.70);
-  --bg-overlay-to: rgba(2, 6, 23, 0.76);
-  --card-bg: rgba(12, 16, 28, 0.72);
-  --card-border: rgba(255,255,255,0.08);
-  --text: #e5e7eb;
-  --accent: #f59e0b;
-  color-scheme: dark;
+/* style-home.css — Fondo con mínimo recorte (contain) + relleno borroso (cover) */
 
-  /* Fondo */
-  position: relative;
-  min-height: 100vh;
+body.home{
+  --overlay-dark: rgba(0,0,0,.55);
+  --text: #e5e7eb;
   color: var(--text);
+  min-height: 100vh;
+  position: relative;
   background-image: url('/background.png');
-  background-size: cover;
-  background-position: center center; /* Centrado sin deformar */
   background-repeat: no-repeat;
+  background-position: center top;
+  background-size: contain; /* evita recortes */
+  background-color: #0b1220;
 }
 
-/* Capa oscura encima del fondo */
-body.home::before {
+/* Relleno borroso (cover) a pantalla completa */
+body.home::after{
   content: "";
   position: fixed;
   inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--bg-overlay-from), var(--bg-overlay-to));
+  background-image: url('/background.png');
+  background-size: cover;
+  background-position: center;
+  filter: blur(14px);
+  opacity: .25;
   z-index: 0;
+  pointer-events: none;
 }
 
-/* Todo el contenido por encima del overlay */
-body.home #app,
-body.home #content,
-body.home main,
-body.home .main,
-body.home .wrap,
-body.home header,
-body.home footer {
-  position: relative;
+/* Overlay oscuro */
+body.home::before{
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-dark);
   z-index: 1;
+  pointer-events: none;
 }
 
-/* Tarjeta principal con efecto glass */
-body.home #leaderboard,
-body.home .main-card {
-  background: var(--card-bg);
+/* Contenido sobre las capas */
+body.home main, body.home header, body.home footer, body.home #app, body.home .wrap {
+  position: relative;
+  z-index: 2;
+}
+
+/* Tarjeta principal (opcional) */
+body.home #leaderboard, body.home .main-card{
+  background: rgba(12, 16, 28, 0.72);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  border: 1px solid var(--card-border);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-  padding: 1rem 1.5rem;
+  padding: 1rem 1.25rem;
 }
 
-/* Tablas más legibles */
-body.home table thead th {
-  background: rgba(15, 23, 42, 0.65);
-  color: var(--text);
-}
-body.home table tbody tr:nth-child(odd) {
-  background: rgba(15, 23, 42, 0.35);
-}
-body.home table tbody tr:hover {
-  background: rgba(30, 41, 59, 0.45);
-}
-body.home td, body.home th {
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
-/* Botones opcionales */
-body.home .btn-home {
-  color: #0b1220;
-  background: var(--accent);
-  border: none;
-  padding: .6rem 1rem;
-  border-radius: 10px;
-  font-weight: 700;
-}
-body.home .btn-home:hover {
-  filter: brightness(1.05);
-}
-
-/* Ajuste en móviles (sin fondo fijo) */
-@media (max-width: 768px) {
-  body.home {
-    background-attachment: scroll !important;
-    background-position: center top;
-  }
+/* En pantallas muy anchas, centra más */
+@media (min-aspect-ratio: 3/2){
+  body.home { background-position: center center; }
 }
