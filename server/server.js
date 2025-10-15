@@ -50,7 +50,7 @@ function parseTimeToMsFlexible(s) {
 function buildPostDataOfficial({ track_id, laps, offset=0, count=200 }) {
   return `track_id=${track_id}&sim_version=${SIM_VERSION}&offset=${offset}&count=${count}&protected_track_value=1&race_mode=${raceModeFromLaps(laps)}`;
 }
-// FIX: para no-oficial, usar track_id=<online_id> y protected_track_value=0
+// No-oficial: enviar track_id=<online_id> y protected_track_value=0
 function buildPostDataUnofficial({ online_id, laps, offset=0, count=200 }) {
   const track_id = encodeURIComponent(online_id);
   return `track_id=${track_id}&sim_version=${SIM_VERSION}&offset=${offset}&count=${count}&protected_track_value=0&race_mode=${raceModeFromLaps(laps)}`;
@@ -103,32 +103,32 @@ async function resolveTrack(query) {
   return { is_official: true, track_id: null, online_id: null, laps: null };
 }
 
-// API
+const norm = s => (s||'').toString().trim().toLowerCase();
+
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     supabase: !!supabase,
-    env: {
-      supabase_url: !!SUPABASE_URL,
-      supabase_key: !!SUPABASE_SERVICE_ROLE,
-      velo_token: !!VELO_API_TOKEN
-    }
+    env: { supabase_url: !!SUPABASE_URL, supabase_key: !!SUPABASE_SERVICE_ROLE, velo_token: !!VELO_API_TOKEN }
   });
+});
+
+app.get('/api/pilots/active', async (req, res) => {
+  try {
+    if (!supabase) return res.json({ pilots: [], warning: 'Supabase no configurado' });
+    const { data, error } = await supabase.from('pilots').select('user_id,name,active').eq('active', true);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ pilots: data || [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/tracks/active', async (req, res) => {
   try {
     if (!supabase) return res.json({ tracks: [], warning: 'Supabase no configurado' });
-    const { data, error } = await supabase
-      .from('tracks')
-      .select('*')
-      .eq('active', true)
-      .order('laps', { ascending: true });
+    const { data, error } = await supabase.from('tracks').select('*').eq('active', true).order('laps', { ascending: true });
     if (error) return res.status(500).json({ error: error.message });
     res.json({ tracks: data || [] });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/tracks/upsert', async (req, res) => {
@@ -144,15 +144,10 @@ app.post('/api/tracks/upsert', async (req, res) => {
     if (is_official) { payload.track_id = Number(track_id); payload.online_id = null; }
     else { payload.track_id = null; payload.online_id = String(online_id); }
 
-    const { data, error } = await supabase
-      .from('tracks')
-      .upsert(payload, { onConflict: is_official ? 'track_id' : 'online_id' })
-      .select();
+    const { data, error } = await supabase.from('tracks').upsert(payload, { onConflict: is_official ? 'track_id' : 'online_id' }).select();
     if (error) return res.status(500).json({ error: error.message });
     res.json({ ok:true, track:data && data[0] });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/leaderboard', async (req, res) => {
@@ -198,17 +193,30 @@ app.get('/api/leaderboard', async (req, res) => {
     });
 
     const bypass = (req.query.filter || '').toLowerCase() === 'all';
+
     let allowedUserIds = null;
+    let allowedNames = null;
     if (!bypass && supabase) {
       const { data: pilots } = await supabase
         .from('pilots')
-        .select('user_id')
+        .select('user_id,name')
         .eq('active', true);
-      if (pilots && pilots.length) allowedUserIds = new Set(pilots.map(p => Number(p.user_id)));
-      else allowedUserIds = new Set();
+      if (pilots && pilots.length) {
+        allowedUserIds = new Set(pilots.map(p => Number(p.user_id)).filter(x => Number.isFinite(x) && x>0));
+        allowedNames = new Set(pilots.map(p => norm(p.name)).filter(x => x.length>0));
+      } else {
+        allowedUserIds = new Set();
+        allowedNames = new Set();
+      }
     }
 
-    const filtered = allowedUserIds ? mapped.filter(x => allowedUserIds.has(x.user_id)) : mapped;
+    const filtered = (allowedUserIds || allowedNames)
+      ? mapped.filter(x => {
+          const idOk = allowedUserIds && allowedUserIds.size>0 ? allowedUserIds.has(Number(x.user_id)) : false;
+          const nameOk = allowedNames && allowedNames.size>0 ? allowedNames.has(norm(x.playername)) : false;
+          return idOk || nameOk;
+        })
+      : mapped;
 
     const bestMap = new Map();
     for (const r of filtered) {
@@ -223,7 +231,16 @@ app.get('/api/leaderboard', async (req, res) => {
 
     res.json({
       is_official, track_id: track_id ?? null, online_id: online_id ?? null, laps,
-      meta: { raw_count: raw.length, filtered_count: filtered.length, returned_count: results.length, bypass_filter: bypass },
+      meta: {
+        raw_count: raw.length,
+        filtered_count: filtered.length,
+        returned_count: results.length,
+        bypass_filter: bypass,
+        filter_keys: {
+          user_ids: (allowedUserIds ? allowedUserIds.size : 0),
+          names: (allowedNames ? allowedNames.size : 0)
+        }
+      },
       results
     });
   } catch (e) {
@@ -231,9 +248,6 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-app.use('/api', (req,res)=>res.status(404).json({ error:'API route not found' }));
-
-// STATIC
 const staticRoot = path.resolve(__dirname, './public');
 app.use(express.static(staticRoot));
 app.get('/admin', (req, res) => res.sendFile(path.join(staticRoot, 'admin.html')));
