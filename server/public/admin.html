@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Tracks</title>
+  <link rel="stylesheet" href="/style-ui.css" />
+  <style> body{padding:1rem;max-width:800px;margin:0 auto} .row{display:flex;gap:1rem;flex-wrap:wrap} input,button{padding:.5rem .7rem;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#111827;color:#e5e7eb} label{display:flex;flex-direction:column;gap:.3rem} .card{background:rgba(12,16,28,.72);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:1rem 1.25rem;margin:.75rem 0}</style>
+</head>
+<body>
+  <h2>Administrar Tracks</h2>
+  <div class="card">
+    <div class="row">
+      <label><span>Nombre (opcional)</span><input id="name" placeholder="Texto opcional" /></label>
+      <label><span>Vueltas</span><input id="laps" type="number" min="1" max="3" value="1" /></label>
+      <label><span>Activo</span><input id="active" type="checkbox" checked /></label>
+    </div>
+    <label style="display:flex;align-items:center;gap:.5rem;margin:.6rem 0"><input type="checkbox" id="is_official" checked /> Track oficial</label>
+    <div id="off-fields" class="row">
+      <label><span>Track ID (oficial)</span><input id="track_id" type="number" min="1" /></label>
+    </div>
+    <div id="unoff-fields" class="row" style="display:none">
+      <label><span>Online ID (no oficial)</span><input id="online_id" /></label>
+    </div>
+    <button id="save">Guardar/Actualizar</button>
+    <div id="msg" class="muted" style="margin-top:.6rem"></div>
+  </div>
+
+  <script>
+    const chk=document.getElementById('is_official');
+    const off=document.getElementById('off-fields');
+    const uno=document.getElementById('unoff-fields');
+    chk.addEventListener('change',()=>{
+      const o=chk.checked; off.style.display=o?'':'none'; uno.style.display=o?'none':'';
+    });
+    document.getElementById('save').addEventListener('click', async ()=>{
+      const body={
+        name: document.getElementById('name').value || null,
+        laps: Number(document.getElementById('laps').value||1),
+        active: document.getElementById('active').checked,
+        is_official: chk.checked
+      };
+      if (chk.checked) body.track_id = Number(document.getElementById('track_id').value||0);
+      else body.online_id = document.getElementById('online_id').value||null;
+      const r = await fetch('/api/tracks/upsert', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const t = await r.text();
+      document.getElementById('msg').textContent = `HTTP ${r.status}: ${t}`;
+    });
+  </script>
+</body>
+</html>

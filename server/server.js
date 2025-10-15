@@ -25,7 +25,7 @@ const VELO_API_TOKEN = process.env.VELO_API_TOKEN || '';
 const supabase = (SUPABASE_URL && SUPABASE_SERVICE_ROLE) ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE) : null;
 
 const veloCache = new Map();
-const raceModeFromLaps = (laps) => (Number(laps) === 3 ? 6 : 3);
+const raceModeFromLaps = laps => (Number(laps) === 3 ? 6 : 3);
 
 function parseTimeToMsFlexible(s) {
   if (!s) return null;
@@ -100,7 +100,7 @@ async function resolveTrack(query) {
   return { is_official: true, track_id: null, online_id: null, laps: null };
 }
 
-// ---- API FIRST ----
+// API
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
@@ -128,9 +128,34 @@ app.get('/api/tracks/active', async (req, res) => {
   }
 });
 
+app.post('/api/tracks/upsert', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Supabase no configurado' });
+    const { is_official=true, track_id=null, online_id=null, laps=1, active=true, name=null } = req.body || {};
+    if (![1,3].includes(Number(laps))) return res.status(400).json({ error:'laps debe ser 1 o 3' });
+    if (is_official && !track_id) return res.status(400).json({ error:'Falta track_id para oficial' });
+    if (!is_official && !online_id) return res.status(400).json({ error:'Falta online_id para no oficial' });
+
+    const payload = { is_official, laps:Number(laps), active: !!active };
+    if (name) payload.name = String(name);
+    if (is_official) { payload.track_id = Number(track_id); payload.online_id = null; }
+    else { payload.track_id = null; payload.online_id = String(online_id); }
+
+    const { data, error } = await supabase
+      .from('tracks')
+      .upsert(payload, { onConflict: is_official ? 'track_id' : 'online_id' })
+      .select();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ ok:true, track:data && data[0] });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const { is_official, track_id, online_id, laps } = await resolveTrack(req.query);
+    const track = await resolveTrack(req.query);
+    const { is_official, track_id, online_id, laps } = track;
     if (![1,3].includes(laps)) return res.status(400).json({ error: 'Parámetros inválidos. laps debe ser 1 o 3.' });
 
     let postData;
@@ -169,20 +194,19 @@ app.get('/api/leaderboard', async (req, res) => {
       };
     });
 
-    // filter by pilots
+    const bypass = (req.query.filter || '').toLowerCase() === 'all';
     let allowedUserIds = null;
-    if (supabase) {
+    if (!bypass && supabase) {
       const { data: pilots } = await supabase
         .from('pilots')
         .select('user_id')
         .eq('active', true);
       if (pilots && pilots.length) allowedUserIds = new Set(pilots.map(p => Number(p.user_id)));
-      else allowedUserIds = new Set(); // nadie activo -> 0 resultados
+      else allowedUserIds = new Set();
     }
 
     const filtered = allowedUserIds ? mapped.filter(x => allowedUserIds.has(x.user_id)) : mapped;
 
-    // best per user
     const bestMap = new Map();
     for (const r of filtered) {
       const prev = bestMap.get(r.user_id);
@@ -196,7 +220,7 @@ app.get('/api/leaderboard', async (req, res) => {
 
     res.json({
       is_official, track_id: track_id ?? null, online_id: online_id ?? null, laps,
-      meta: { raw_count: raw.length, filtered_count: filtered.length, returned_count: results.length },
+      meta: { raw_count: raw.length, filtered_count: filtered.length, returned_count: results.length, bypass_filter: bypass },
       results
     });
   } catch (e) {
@@ -206,7 +230,7 @@ app.get('/api/leaderboard', async (req, res) => {
 
 app.use('/api', (req,res)=>res.status(404).json({ error:'API route not found' }));
 
-// ---- STATIC (prefer ./public for Render Root=server) ----
+// STATIC (prioriza ./public)
 const candidates = [
   path.resolve(__dirname, './public'),
   path.resolve(__dirname, '../frontend'),
@@ -235,6 +259,7 @@ if (!STATIC_ROOT) {
   app.get('*', (req, res) => res.status(500).send('Static index.html not found. Checked: ' + candidates.join(' | ')));
 } else {
   app.use(express.static(STATIC_ROOT));
+  app.get('/admin', (req, res) => res.sendFile(path.join(STATIC_ROOT, 'admin.html')));
   app.get('*', (req, res) => res.sendFile(path.join(STATIC_ROOT, 'index.html')));
 }
 

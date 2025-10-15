@@ -3,18 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Liga Velocidrone</title>
+  <title></title>
   <link rel="stylesheet" href="/style-home.css" />
   <link rel="stylesheet" href="/style-ui.css" />
 </head>
 <body class="home">
-  <header class="wrap">
-    <h1>🏁 Liga Velocidrone</h1>
-    <div class="muted">v1</div>
-  </header>
   <main class="wrap">
     <section class="main-card">
-      <div id="tracks" class="mb"></div>
+      <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.5rem">
+        <div id="tracks"></div>
+        <label class="muted" style="display:flex;align-items:center;gap:.4rem">
+          <input type="checkbox" id="toggleAll" />
+          Ver todos (ignorar filtro liga)
+        </label>
+      </div>
       <div id="status" class="status muted"></div>
       <div id="leaderboard">
         <table>
@@ -37,7 +39,7 @@
       const res = await fetchJSON('/api/tracks/active');
       if(!res.ok){ box.innerHTML = `<div class="error">Error al cargar tracks activos:<br>HTTP ${res.status} - ${res.data && res.data.error ? res.data.error : res.data}</div>`; return null; }
       const tracks = (res.data && res.data.tracks) ? res.data.tracks : [];
-      if(!tracks.length){ box.innerHTML = `<div class="muted">No hay tracks activos en la base de datos.</div>`; return null; }
+      if(!tracks.length){ box.innerHTML = `<div class="muted">No hay tracks activos.</div>`; return null; }
       box.innerHTML = `
         <div class="tabs">
           ${tracks.map((t,i)=>`<button class="btn ${i===0?'active':''}" data-i="${i}">${t.name || (t.is_official ? `Oficial ${t.track_id}` : `No oficial`) } · ${t.laps} lap</button>`).join('')}
@@ -66,6 +68,7 @@
         else if (track.online_id) { q.push(`online_id=${encodeURIComponent(track.online_id)}`); }
         q.push(`laps=${track.laps}`);
       }
+      if (document.getElementById('toggleAll').checked) q.push('filter=all');
       if (q.length) url += `?${q.join('&')}`;
       const res = await fetchJSON(url);
       if(!res.ok){
@@ -73,7 +76,8 @@
         return;
       }
       const data = res.data;
-      status.innerHTML = `<span class="muted">Se muestran ${data.meta && data.meta.returned_count !== undefined ? data.meta.returned_count : (data.results?data.results.length:0)} pilotos dados de alta en la liga.</span>`;
+      const returned = data.meta && data.meta.returned_count !== undefined ? data.meta.returned_count : (data.results?data.results.length:0);
+      status.innerHTML = `<span class="muted">${document.getElementById('toggleAll').checked ? 'Mostrando TODOS los pilotos' : 'Se muestran sólo pilotos dados de alta en la liga'} — ${returned} resultados.</span>`;
       const rows = (data.results || []).map(r => `
         <tr>
           <td data-label="#">${r.position}</td>
@@ -82,9 +86,15 @@
           <td data-label="Modelo">${r.model_name || '-'}</td>
           <td data-label="Tiempo">${r.lap_time || '-'}</td>
         </tr>`).join('');
-      table.innerHTML = rows || `<tr><td colspan="5" class="muted">No hay resultados para los pilotos dados de alta.</td></tr>`;
+      table.innerHTML = rows || `<tr><td colspan="5" class="muted">Sin resultados.</td></tr>`;
     }
-    document.addEventListener('DOMContentLoaded', loadTracks);
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadTracks();
+      document.getElementById('toggleAll').addEventListener('change', ()=>{
+        const active = document.querySelector('#tracks .btn.active');
+        if (active) active.click();
+      });
+    });
   </script>
 </body>
 </html>
